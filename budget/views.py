@@ -1,21 +1,36 @@
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, request
+
+from twilio.rest import Client
 
 from .models import IOU
+from .utils import IOUHandler, MessageError
+from .database import db
 
 views = Blueprint('views', __name__)
 
 @views.route('/incoming/', methods=['POST'])
-def owe():
-    if request.form.get('From') in current_app.config['OK_NUMBERS']:
-        message = request.form['Body']
+def incoming():
+
+    message = request.form.get('Body')
+    from_number = request.form.get('From')
+
+    if message and from_number:
+        iou = IOUHandler(message, from_number)
     else:
-        abort(401)
+        abort(400)
 
-    ower, owee = message.lower().split('owes')
-    print(ower, owee)
+    return 'iou handled'
 
-    owee, amount = owee.rsplit(' ', 1)
+@views.app_errorhandler(MessageError)
+def error(exception):
 
-    print(ower.strip(), owee.strip(), amount.strip())
+    account_id = current_app.config['TWILIO_ACCOUNT_ID']
+    auth_token = currnet_app.config['TWILIO_AUTH_TOKEN']
+    from_number = current_app.config['TWILIO_NUMBER']
 
-    return 'owe'
+    client = Client(account_id, auth_token)
+    message = client.messages.create(to=exception.from_number,
+                                     from_=from_number,
+                                     body=exception.message)
+
+    return 'exception handled'
