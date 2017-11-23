@@ -28,6 +28,11 @@ DB_FMT = 'postgresql://{user}:{pw}@{host}:{port}/{name}'
 DB_CONN = DB_FMT.format(**DB_OPTS)
 
 
+class FakeMessages(object):
+    def create(self, **kwargs):
+        self.kwargs = kwargs
+
+
 @pytest.fixture(scope='session')
 def database(request):
     pg_host = DB_OPTS.get("host")
@@ -98,12 +103,18 @@ def db_session(db, request):
     return session
 
 @pytest.fixture(scope='function')
-def setup(db):
-    eric = Person(name='Eric',
+def setup(db, request):
+    eric = Person(name='eric',
                   phone_number='+13125555555',
                   admin=True)
-    kristi = Person(name='Kristi',
+    kristi = Person(name='kristi',
                     phone_number='+13126666666')
     db.session.add(eric)
     db.session.add(kristi)
     db.session.commit()
+
+    @request.addfinalizer
+    def remove_users():
+        db.session.delete(eric)
+        db.session.delete(kristi)
+        db.session.commit()

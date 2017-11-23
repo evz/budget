@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pytz import timezone
 
+from sqlalchemy.orm.exc import NoResultFound
+
 import phonenumbers
 from phonenumbers import PhoneNumberFormat
 
@@ -21,13 +23,17 @@ class MessageError(Exception):
         return self.message
 
 
+class PermissionError(MessageError):
+    pass
+
+
 class IOUHandler(object):
     def __init__(self, message, from_number):
         self.message = message
         self.from_number = from_number
 
-    def __call__(self):
-        if 'owes' in self.message:
+    def handle(self):
+        if 'owes' in self.message.lower():
             return self.addIOU()
         elif self.message.lower().startswith('add'):
             return self.addPerson()
@@ -52,6 +58,8 @@ class IOUHandler(object):
 
             db.session.add(person)
             db.session.commit()
+        else:
+            raise PermissionError("Sorry, you can't do that", self.from_number)
 
     def addIOU(self):
         '''
@@ -59,7 +67,8 @@ class IOUHandler(object):
         '''
 
         try:
-            ower_name, owee = message.lower().split('owes')
+            ower_name, owee = self.message.lower().split('owes')
+            owee = owee.strip()
             owee_name, amount = owee.rsplit(' ', 1)
         except ValueError:
             raise MessageError('IOU message should look like: '
@@ -87,14 +96,17 @@ class IOUHandler(object):
         db.session.commit()
 
     def findPerson(self, person_name):
+        person_name = person_name.strip()
+
         try:
             condition = Person.name.ilike('%{}%'.format(person_name))
             person = db.session.query(Person).filter(condition).one()
-        except NoResultsFound:
+        except NoResultFound:
             raise MessageError('"{0}" not found. '
                                'You can add this person '
-                               'by texting back "Add "{0}" '
-                               '<their phone number>'.format(ower_name))
+                               'by texting back "Add {0} '
+                               '<their phone number>'.format(person_name),
+                               self.from_number)
         return person
 
 
