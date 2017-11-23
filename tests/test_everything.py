@@ -1,3 +1,6 @@
+import phonenumbers
+from phonenumbers import PhoneNumberFormat
+
 from flask import url_for, current_app
 
 from budget.models import Person, IOU
@@ -27,21 +30,37 @@ def test_add_iou(db_session, client, setup):
 
 
 def test_add_person(db_session, client, setup):
-    data = {
-        'Body': 'Add Foo +13129999999',
-        'From': '+13125555555',
-    }
 
-    client.post(url_for('views.incoming'), data=data)
+    good_numbers = [
+        ('+13129999999', 'foo',),
+        ('+1 (312) 888-8888', 'floop',),
+        ('(312) 888-7777', 'bloop',),
+        ('312 777 8888', 'froop',),
+        ('3126667777', 'groop',),
+        ('312 888-0011', 'shoop',),
+    ]
 
-    person = db_session.query(Person).filter(Person.name == 'Foo').first()
+    for number, name in good_numbers:
 
-    assert person.name == 'Foo'
-    assert not person.admin
-    assert person.phone_number == '+13129999999'
+        data = {
+            'Body': 'Add {0} {1}'.format(name, number),
+            'From': '+13125555555',
+        }
 
-    db_session.delete(person)
-    db_session.commit()
+        client.post(url_for('views.incoming'), data=data)
+
+        person = db_session.query(Person).filter(Person.name == name).first()
+
+        assert person.name == name
+        assert not person.admin
+
+        number = phonenumbers.format_number(phonenumbers.parse(number, 'US'),
+                                            PhoneNumberFormat.E164)
+
+        assert person.phone_number == number
+
+        db_session.delete(person)
+        db_session.commit()
 
 
 def test_iou_missing_person(db_session, client, setup, mocker):
@@ -66,6 +85,11 @@ def test_iou_missing_person(db_session, client, setup, mocker):
 def test_add_person_bad_number(db_session, client, setup, mocker):
     fake_messages = FakeMessages()
     mocker.patch.object(Client, 'messages', new=fake_messages)
+
+    bad_numbers = [
+        '444',
+        '+1 (312) 456-9876'
+    ]
 
     data = {
         'Body': 'Add Foo 444',

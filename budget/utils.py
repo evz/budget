@@ -45,7 +45,7 @@ class IOUHandler(object):
         if self.fromAdmin():
 
             try:
-                _, name, number = self.message.split(' ')
+                _, name, number = self.message.split(' ', 2)
             except ValueError:
                 raise MessageError('"Add person" message should '
                                    'look like: "Add <name> <phone number>"',
