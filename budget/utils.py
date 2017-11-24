@@ -42,6 +42,8 @@ class IOUHandler(object):
             return self.addIOU()
         elif self.message.lower().startswith('add'):
             return self.addPerson()
+        elif self.message.lower().startswith('how much'):
+            return self.inquiry()
 
     def addPerson(self):
         '''
@@ -104,6 +106,27 @@ class IOUHandler(object):
         db.session.add(iou)
         db.session.commit()
 
+        return self.balance(ower, owee)
+
+    def inquiry(self):
+        """
+        Example: "How much does Eric owe Kristi?"
+        """
+
+        try:
+            _, ower_name, _, owee_name = self.message.lower().rsplit(' ', 3)
+
+        except ValueError:
+            raise MessageError('Balance inquiry should look like '
+                               '"How much does <person 1 name> owe '
+                               '<person 2 name>?"', self.from_number)
+
+        ower = self.findPerson(ower_name)
+        owee = self.findPerson(owee_name.replace('?', ''))
+
+        return self.balance(ower, owee)
+
+    def balance(self, ower, owee):
         owes = IOU.query.filter(IOU.ower == ower)\
                         .filter(IOU.owee == owee).all()
         ower_total = sum(o.amount for o in owes)
@@ -112,22 +135,24 @@ class IOUHandler(object):
                         .filter(IOU.owee == ower).all()
         owee_total = sum(o.amount for o in owed)
 
-        total = ower_total - owee_total
+        balance =  int(ower_total - owee_total)
 
         fmt_args = {
             'ower': ower.name.title(),
             'owee': owee.name.title(),
-            'total': int(abs(total)),
+            'balance': balance,
         }
 
-        if total == 0:
+        if balance == 0:
             message = '{ower} and {owee} are now even'.format(**fmt_args)
-        elif total > 0:
-            message = '{ower} now owes {owee} ${total}'.format(**fmt_args)
-        elif total < 0:
-            message = '{owee} now owes {ower} ${total}'.format(**fmt_args)
+        elif balance > 0:
+            message = '{ower} now owes {owee} ${balance}'.format(**fmt_args)
+        elif balance < 0:
+            fmt_args['balance'] = abs(fmt_args['balance'])
+            message = '{owee} now owes {ower} ${balance}'.format(**fmt_args)
 
         return message
+
 
     def findPerson(self, person_name):
         person_name = person_name.strip()

@@ -44,6 +44,33 @@ def test_add_iou(db, client, setup, twilio_mock):
 
     assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi $130'
 
+    data = {
+        'Body': 'Kristi owes Eric $200',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Kristi now owes Eric $70'
+
+    data = {
+        'Body': 'How much does Eric owe Kristi?',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Kristi now owes Eric $70'
+
+    data = {
+        'Body': 'How much does Kristi owe Eric?',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Kristi now owes Eric $70'
+
     for iou in IOU.query.all():
         db.session.delete(iou)
 
@@ -91,12 +118,12 @@ def test_add_person(db, client, setup, twilio_mock):
 
         assert person.phone_number == number
 
-        db.session.delete(person)
-        db.session.commit()
-
         assert twilio_mock.kwargs['to'] == data['From']
         assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
         assert twilio_mock.kwargs['body'] == '"{name}" with phone number {number} successfully added'.format(name=name, number=number)
+
+        db.session.delete(person)
+        db.session.commit()
 
 
 def test_iou_missing_person(db, client, setup, twilio_mock):
@@ -161,3 +188,17 @@ def test_bad_add_person(db, client, setup, twilio_mock):
     assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
     assert twilio_mock.kwargs['body'] == '"Add person" message should '\
                                            'look like: "Add <name> <phone number>"'
+
+
+def test_bad_inquiry(db, client, setup, twilio_mock):
+
+    data = {
+        'Body': 'How much floop',
+        'From': '+13125555555',
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Balance inquiry should look like '\
+                                         '"How much does <person 1 name> owe '\
+                                         '<person 2 name>?"'
