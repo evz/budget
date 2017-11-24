@@ -8,6 +8,8 @@ from pytest_postgresql.factories import (
 from budget import create_app
 from budget.database import db as _db
 from budget.models import Person
+from budget.utils import Client
+
 
 DB_USER = 'postgres'
 DB_HOST = ''
@@ -118,3 +120,11 @@ def setup(db, request):
         db.session.delete(eric)
         db.session.delete(kristi)
         db.session.commit()
+
+
+@pytest.fixture(scope='function')
+def twilio_mock(mocker):
+    fake_messages = FakeMessages()
+    mocker.patch.object(Client, 'messages', new=fake_messages)
+
+    return fake_messages

@@ -4,12 +4,9 @@ from phonenumbers import PhoneNumberFormat
 from flask import url_for, current_app
 
 from budget.models import Person, IOU
-from budget.views import Client
-
-from .conftest import FakeMessages
 
 
-def test_add_iou(db_session, client, setup):
+def test_add_iou(db_session, client, setup, twilio_mock):
     data = {
         'Body': 'Eric owes Kristi $100',
         'From': '+13125555555'
@@ -25,8 +22,43 @@ def test_add_iou(db_session, client, setup):
     assert iou.owee == kristi
     assert iou.amount == 100.0
 
+    assert twilio_mock.kwargs['to'] == data['From']
+    assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi a total of $100'
+
     db_session.delete(iou)
     db_session.commit()
+
+    data = {
+        'Body': 'Eric owes Kristi $100',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi a total of $200'
+
+    data = {
+        'Body': 'Kristi owes Eric $70',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi a total of $130'
+
+
+def test_bad_amount(client, setup, twilio_mocker):
+    data = {
+        'Body': 'Eric owes Kristi poop',
+        'From': '+13125555555',
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['to'] == data['From']
+    assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+    assert twilio_mock.kwargs['body'] == 'Amount "poop" should be a number'
 
 
 def test_add_person(db_session, client, setup):
@@ -63,10 +95,7 @@ def test_add_person(db_session, client, setup):
         db_session.commit()
 
 
-def test_iou_missing_person(db_session, client, setup, mocker):
-
-    fake_messages = FakeMessages()
-    mocker.patch.object(Client, 'messages', new=fake_messages)
+def test_iou_missing_person(db_session, client, setup, twilio_mock):
 
     data = {
         'Body': 'Foo owes Eric $300',
@@ -75,20 +104,17 @@ def test_iou_missing_person(db_session, client, setup, mocker):
 
     client.post(url_for('views.incoming'), data=data)
 
-    assert fake_messages.kwargs['to'] == data['From']
-    assert fake_messages.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
-    assert fake_messages.kwargs['body'] == '"foo" not found. '\
+    assert twilio_mock.kwargs['to'] == data['From']
+    assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+    assert twilio_mock.kwargs['body'] == '"foo" not found. '\
                                            'You can add this person by '\
                                            'texting back "Add foo <their phone number>'
 
 
-def test_add_person_bad_number(db_session, client, setup, mocker):
-    fake_messages = FakeMessages()
-    mocker.patch.object(Client, 'messages', new=fake_messages)
+def test_add_person_bad_number(db_session, client, setup, twilio_mock):
 
     bad_numbers = [
         '444',
-        '+1 (312) 456-9876'
     ]
 
     data = {
@@ -98,14 +124,12 @@ def test_add_person_bad_number(db_session, client, setup, mocker):
 
     client.post(url_for('views.incoming'), data=data)
 
-    assert fake_messages.kwargs['to'] == data['From']
-    assert fake_messages.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
-    assert fake_messages.kwargs['body'] == '"444" is not a valid phone number'
+    assert twilio_mock.kwargs['to'] == data['From']
+    assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+    assert twilio_mock.kwargs['body'] == '"444" is not a valid phone number'
 
 
-def test_bad_iou(db_session, client, setup, mocker):
-    fake_messages = FakeMessages()
-    mocker.patch.object(Client, 'messages', new=fake_messages)
+def test_bad_iou(db_session, client, setup, twilio_mock):
 
     data = {
         'Body': 'Owes 300',
@@ -114,15 +138,13 @@ def test_bad_iou(db_session, client, setup, mocker):
 
     client.post(url_for('views.incoming'), data=data)
 
-    assert fake_messages.kwargs['to'] == data['From']
-    assert fake_messages.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
-    assert fake_messages.kwargs['body'] == 'IOU message should look like: '\
+    assert twilio_mock.kwargs['to'] == data['From']
+    assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+    assert twilio_mock.kwargs['body'] == 'IOU message should look like: '\
                                            '"<name> owes <name> <amount>"'
 
 
-def test_bad_add_person(db_session, client, setup, mocker):
-    fake_messages = FakeMessages()
-    mocker.patch.object(Client, 'messages', new=fake_messages)
+def test_bad_add_person(db_session, client, setup, twilio_mock):
 
     data = {
         'Body': 'Add floop',
@@ -131,8 +153,7 @@ def test_bad_add_person(db_session, client, setup, mocker):
 
     client.post(url_for('views.incoming'), data=data)
 
-    assert fake_messages.kwargs['to'] == data['From']
-    assert fake_messages.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
-    assert fake_messages.kwargs['body'] == '"Add person" message should '\
+    assert twilio_mock.kwargs['to'] == data['From']
+    assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+    assert twilio_mock.kwargs['body'] == '"Add person" message should '\
                                            'look like: "Add <name> <phone number>"'
-

@@ -2,10 +2,15 @@ from datetime import datetime
 
 from pytz import timezone
 
+from flask import current_app
+
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import text
 
 import phonenumbers
 from phonenumbers import PhoneNumberFormat
+
+from twilio.rest import Client
 
 from .models import IOU, Person
 
@@ -95,6 +100,39 @@ class IOUHandler(object):
         db.session.add(iou)
         db.session.commit()
 
+        totals = '''
+            SELECT (
+              SELECT SUM(amount)
+              FROM iou
+              WHERE ower_id = :ower_id
+                AND owee_id = :owee_id
+            ) - (
+              SELECT SUM(amount)
+              FROM iou
+              WHERE ower_id = :owee_id
+                AND owee_id = :ower_id
+            ) AS total
+        '''
+
+        total = db.session.execute(text(totals),
+                                   ower_id=ower.id,
+                                   owee_id=owee.id).first().total
+
+        fmt_args = {
+            'ower': ower.name.title(),
+            'owee': owee.name.title(),
+            'total': abs(total),
+        }
+
+        if total == 0:
+            message = '{ower} and {owee} are now even'.format(**fmt_args)
+        elif total > 0:
+            message = '{ower} now owes {owee} ${total}'.format(**fmt_args)
+        elif total < 0:
+            message = '{owee} now owes {ower} ${total}'.format(**fmt_args)
+
+        return message
+
     def findPerson(self, person_name):
         person_name = person_name.strip()
 
@@ -126,3 +164,15 @@ class IOUHandler(object):
                           .first()
         if admin:
             return admin.admin
+
+
+def sendTwilioResponse(message, to_number):
+
+    account_id = current_app.config['TWILIO_ACCOUNT_ID']
+    auth_token = current_app.config['TWILIO_AUTH_TOKEN']
+    from_number = current_app.config['TWILIO_NUMBER']
+
+    client = Client(account_id, auth_token)
+    message = client.messages.create(to=to_number,
+                                     from_=from_number,
+                                     body=message)
