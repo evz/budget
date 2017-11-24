@@ -1,5 +1,6 @@
 import os
 import pytest
+from uuid import uuid4
 
 from pytest_postgresql.factories import (
     init_postgresql_database, drop_postgresql_database, get_config,
@@ -71,7 +72,7 @@ def app(request, database):
     return app
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='function')
 def db(app, request):
 
     _db.app = app
@@ -85,24 +86,24 @@ def db(app, request):
     return _db
 
 
-@pytest.fixture(scope='function')
-def db_session(db, request):
-    """Creates a new database session for a test."""
-    connection = db.engine.connect()
-    transaction = connection.begin()
-
-    options = dict(bind=connection, binds={})
-    session = db.create_scoped_session(options=options)
-
-    db.session = session
-
-    def teardown():
-        transaction.rollback()
-        connection.close()
-        session.remove()
-
-    request.addfinalizer(teardown)
-    return session
+# @pytest.fixture(scope='function')
+# def db_session(db, request):
+#     """Creates a new database session for a test."""
+#     connection = db.engine.connect()
+#     transaction = connection.begin()
+#
+#     options = dict(bind=connection, binds={})
+#     session = db.create_scoped_session(options=options)
+#
+#     db.session = session
+#
+#     def teardown():
+#         transaction.rollback()
+#         connection.close()
+#         session.remove()
+#
+#     request.addfinalizer(teardown)
+#     return session
 
 @pytest.fixture(scope='function')
 def setup(db, request):

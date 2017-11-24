@@ -6,7 +6,7 @@ from flask import url_for, current_app
 from budget.models import Person, IOU
 
 
-def test_add_iou(db_session, client, setup, twilio_mock):
+def test_add_iou(db, client, setup, twilio_mock):
     data = {
         'Body': 'Eric owes Kristi $100',
         'From': '+13125555555'
@@ -14,9 +14,9 @@ def test_add_iou(db_session, client, setup, twilio_mock):
 
     client.post(url_for('views.incoming'), data=data)
 
-    iou = db_session.query(IOU).filter(IOU.amount == 100.0).first()
-    eric = db_session.query(Person).filter(Person.name == 'eric').first()
-    kristi = db_session.query(Person).filter(Person.name == 'kristi').first()
+    iou = db.session.query(IOU).filter(IOU.amount == 100.0).first()
+    eric = db.session.query(Person).filter(Person.name == 'eric').first()
+    kristi = db.session.query(Person).filter(Person.name == 'kristi').first()
 
     assert iou.ower == eric
     assert iou.owee == kristi
@@ -24,10 +24,7 @@ def test_add_iou(db_session, client, setup, twilio_mock):
 
     assert twilio_mock.kwargs['to'] == data['From']
     assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
-    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi a total of $100'
-
-    db_session.delete(iou)
-    db_session.commit()
+    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi $100'
 
     data = {
         'Body': 'Eric owes Kristi $100',
@@ -36,7 +33,7 @@ def test_add_iou(db_session, client, setup, twilio_mock):
 
     client.post(url_for('views.incoming'), data=data)
 
-    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi a total of $200'
+    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi $200'
 
     data = {
         'Body': 'Kristi owes Eric $70',
@@ -45,10 +42,13 @@ def test_add_iou(db_session, client, setup, twilio_mock):
 
     client.post(url_for('views.incoming'), data=data)
 
-    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi a total of $130'
+    assert twilio_mock.kwargs['body'] == 'Eric now owes Kristi $130'
+
+    for iou in IOU.query.all():
+        db.session.delete(iou)
 
 
-def test_bad_amount(client, setup, twilio_mocker):
+def test_bad_amount(client, setup, twilio_mock):
     data = {
         'Body': 'Eric owes Kristi poop',
         'From': '+13125555555',
@@ -61,7 +61,7 @@ def test_bad_amount(client, setup, twilio_mocker):
     assert twilio_mock.kwargs['body'] == 'Amount "poop" should be a number'
 
 
-def test_add_person(db_session, client, setup):
+def test_add_person(db, client, setup, twilio_mock):
 
     good_numbers = [
         ('+13129999999', 'foo',),
@@ -81,7 +81,7 @@ def test_add_person(db_session, client, setup):
 
         client.post(url_for('views.incoming'), data=data)
 
-        person = db_session.query(Person).filter(Person.name == name).first()
+        person = db.session.query(Person).filter(Person.name == name).first()
 
         assert person.name == name
         assert not person.admin
@@ -91,11 +91,15 @@ def test_add_person(db_session, client, setup):
 
         assert person.phone_number == number
 
-        db_session.delete(person)
-        db_session.commit()
+        db.session.delete(person)
+        db.session.commit()
+
+        assert twilio_mock.kwargs['to'] == data['From']
+        assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
+        assert twilio_mock.kwargs['body'] == '"{name}" with phone number {number} successfully added'.format(name=name, number=number)
 
 
-def test_iou_missing_person(db_session, client, setup, twilio_mock):
+def test_iou_missing_person(db, client, setup, twilio_mock):
 
     data = {
         'Body': 'Foo owes Eric $300',
@@ -111,7 +115,7 @@ def test_iou_missing_person(db_session, client, setup, twilio_mock):
                                            'texting back "Add foo <their phone number>'
 
 
-def test_add_person_bad_number(db_session, client, setup, twilio_mock):
+def test_add_person_bad_number(db, client, setup, twilio_mock):
 
     bad_numbers = [
         '444',
@@ -129,7 +133,7 @@ def test_add_person_bad_number(db_session, client, setup, twilio_mock):
     assert twilio_mock.kwargs['body'] == '"444" is not a valid phone number'
 
 
-def test_bad_iou(db_session, client, setup, twilio_mock):
+def test_bad_iou(db, client, setup, twilio_mock):
 
     data = {
         'Body': 'Owes 300',
@@ -144,7 +148,7 @@ def test_bad_iou(db_session, client, setup, twilio_mock):
                                            '"<name> owes <name> <amount>"'
 
 
-def test_bad_add_person(db_session, client, setup, twilio_mock):
+def test_bad_add_person(db, client, setup, twilio_mock):
 
     data = {
         'Body': 'Add floop',

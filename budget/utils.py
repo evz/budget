@@ -63,6 +63,10 @@ class IOUHandler(object):
 
             db.session.add(person)
             db.session.commit()
+
+            return '"{name}" with phone number {number} successfully added'.format(name=name,
+                                                                                   number=phone_number)
+
         else:
             raise PermissionError("Sorry, you can't do that", self.from_number)
 
@@ -84,7 +88,7 @@ class IOUHandler(object):
             amount = amount.replace('$', '')
             amount = float(amount)
         except ValueError:
-            raise MessageError('Amount "{}" should be a number',
+            raise MessageError('Amount "{}" should be a number'.format(amount),
                                self.from_number)
 
         ower = self.findPerson(ower_name)
@@ -100,28 +104,20 @@ class IOUHandler(object):
         db.session.add(iou)
         db.session.commit()
 
-        totals = '''
-            SELECT (
-              SELECT SUM(amount)
-              FROM iou
-              WHERE ower_id = :ower_id
-                AND owee_id = :owee_id
-            ) - (
-              SELECT SUM(amount)
-              FROM iou
-              WHERE ower_id = :owee_id
-                AND owee_id = :ower_id
-            ) AS total
-        '''
+        owes = IOU.query.filter(IOU.ower == ower)\
+                        .filter(IOU.owee == owee).all()
+        ower_total = sum(o.amount for o in owes)
 
-        total = db.session.execute(text(totals),
-                                   ower_id=ower.id,
-                                   owee_id=owee.id).first().total
+        owed = IOU.query.filter(IOU.ower == owee)\
+                        .filter(IOU.owee == ower).all()
+        owee_total = sum(o.amount for o in owed)
+
+        total = ower_total - owee_total
 
         fmt_args = {
             'ower': ower.name.title(),
             'owee': owee.name.title(),
-            'total': abs(total),
+            'total': int(abs(total)),
         }
 
         if total == 0:
@@ -138,7 +134,7 @@ class IOUHandler(object):
 
         try:
             condition = Person.name.ilike('%{}%'.format(person_name))
-            person = db.session.query(Person).filter(condition).one()
+            person = Person.query.filter(condition).one()
         except NoResultFound:
             raise MessageError('"{0}" not found. '
                                'You can add this person '
