@@ -4,3 +4,4 @@ __pycache__/
 /keyrings/live/pubring.kbx~
 /keyrings/live/secring.gpg
 /configs/app_config.py
+/configs/nginx_template.conf
