@@ -30,9 +30,6 @@ deploy:
   access_key_id: AKIAIRJEIPZFF5EPEUXQ
   secret_access_key:
     secure: c9Imc0RJ5t/IDg2lGPd9qpd1QZHJFEbff012tJTn6wZVqh34RmAg3VtVtmseflyqmxxiNCdMld13L6bLD3TJ5ZwQZeE43Cro7nXsO4HSGJ5EG1t22+Va8qLHJ+LVVMmKZGcYvUxqg6422VMxune4yHDUtTW2TKOKVJKD16eniTt2spuQCeK/0kgjHk4SzjocN9xpCzmnlKMEA+kC3ACB36+xuQzUMJ3mSa3MYYcPxnmtz0TcAlNGsTmOzkd3BM2JcofkKJYSd0OL0d5vT9wIfaksjAZwregI3FrFYdwSau/u/kHriZFmHC10Uh+GTKTGCcxqq+WpqTqjZ3O3CBvzzy+heFdYEfxEvWaM/qed1zUFvgdDfgDcu4maenG7qrZKfpKSUaynH6cqwqddhdt0YDZAoIDllAsh/cMqByBxJnh4B891RxBK0mK/tvfEyB7w5ZfW/89m/T7W3eMElhiXZa+/uYCrbjP8pikPNAgdL7zBUK4ZL0aIGGDI9Ren9BSooIks0eKH376AeA/TaEnVNkxKsCPHmDoCC8pHsBeOp6MDZ4n8EDk16/x8U2tq22V0vK2AGbJLPqjCFS8Bo1A3v7AUA7GZ0lfpKqcinUKoyxjcH4Fhpm+VKxGFLGJoUCLOenoQjQobHZhp1/qPf3UAW+55h3JhVm1gDCWmVr5fo50=
-  bucket: ''
-  key: ''
-  bundle_type: ''
   application: budget
   deployment_group: production
   on:
