@@ -8,6 +8,17 @@ from .database import db
 views = Blueprint('views', __name__)
 
 
+@views.route('/pong/')
+def pong():
+
+    try:
+        from deployment import DEPLOYMENT_ID
+    except ImportError:
+        abort(401)
+
+    return DEPLOYMENT_ID
+
+
 @views.route('/incoming/', methods=['POST'])
 def incoming():
 
