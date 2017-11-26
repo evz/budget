@@ -34,8 +34,10 @@ class PermissionError(MessageError):
 
 class IOUHandler(object):
     def __init__(self, message, from_number):
-        self.message = message
+        self.message = message.strip()
         self.from_number = from_number
+        self.other_number = None
+        self.sent_from_ower = False
 
     def handle(self):
         if self.message.lower().startswith('how much'):
@@ -95,15 +97,19 @@ class IOUHandler(object):
             raise MessageError('Amount "{}" should be a number'.format(amount),
                                self.from_number)
 
-        if ower_name.strip() == 'i':
-            ower = Person.query.filter(Person.phone_number == self.from_number).one()
-            owee = self.findPerson(owee_name)
-        elif owee_name.strip() == 'me':
-            owee = Person.query.filter(Person.phone_number == self.from_number).one()
-            ower = self.findPerson(ower_name)
-        else:
-            ower = self.findPerson(ower_name)
-            owee = self.findPerson(owee_name)
+        ower = self.findPerson(ower_name)
+        owee = self.findPerson(owee_name)
+
+        if self.from_number not in [ower.phone_number, owee.phone_number]:
+            raise MessageError("Sorry, you can't record IOUs"
+                               "that you are not part of", self.from_number)
+
+        elif ower.phone_number == self.from_number:
+            self.other_number = owee.phone_number
+            self.sent_from_ower = True
+
+        elif owee.phone_number == self.from_number:
+            self.other_number = ower.phone_number
 
         date_added = TIMEZONE.localize(datetime.now())
 
@@ -120,6 +126,8 @@ class IOUHandler(object):
     def inquiry(self):
         """
         Example: "How much does Eric owe Kristi?"
+                 "How much do I owe Kristi?"
+                 "How much does Kristi owe me?"
         """
 
         try:
@@ -166,8 +174,12 @@ class IOUHandler(object):
     def findPerson(self, person_name):
         person_name = person_name.strip()
 
-        try:
+        if person_name in ['i', 'me']:
+            condition = Person.phone_number == self.from_number
+        else:
             condition = Person.name.ilike('%{}%'.format(person_name))
+
+        try:
             person = Person.query.filter(condition).one()
         except NoResultFound:
             raise MessageError('"{0}" not found. '

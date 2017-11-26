@@ -90,6 +90,24 @@ def test_add_iou(db, client, setup, twilio_mock):
 
     assert twilio_mock.kwargs['body'] == 'Kristi now owes Eric $70'
 
+    data = {
+        'Body': 'How much do I owe Kristi?',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Kristi now owes Eric $70'
+
+    data = {
+        'Body': 'How much does Kristi owe me?',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'Kristi now owes Eric $70'
+
     for iou in IOU.query.all():
         db.session.delete(iou)
 
