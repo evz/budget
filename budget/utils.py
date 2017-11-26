@@ -38,16 +38,16 @@ class IOUHandler(object):
         self.from_number = from_number
 
     def handle(self):
-        if 'owes' in self.message.lower():
+        if self.message.lower().startswith('how much'):
+            return self.inquiry()
+        elif 'owe' in self.message.lower():
             return self.addIOU()
         elif self.message.lower().startswith('add'):
             return self.addPerson()
-        elif self.message.lower().startswith('how much'):
-            return self.inquiry()
 
     def addPerson(self):
         '''
-        Example: "Add Eric 3126599476"
+        Example: "Add Eric 3125555555"
         '''
         if self.fromAdmin():
 
@@ -75,10 +75,12 @@ class IOUHandler(object):
     def addIOU(self):
         '''
         Example: "Eric owes Kristi $100"
+                 "I owe Kristi $75"
+                 "Kristi owes me $50"
         '''
 
         try:
-            ower_name, owee = self.message.lower().split('owes')
+            ower_name, owee = self.message.lower().replace('owes', 'owe').split('owe')
             owee = owee.strip()
             owee_name, amount = owee.rsplit(' ', 1)
         except ValueError:
@@ -93,8 +95,15 @@ class IOUHandler(object):
             raise MessageError('Amount "{}" should be a number'.format(amount),
                                self.from_number)
 
-        ower = self.findPerson(ower_name)
-        owee = self.findPerson(owee_name)
+        if ower_name.strip() == 'i':
+            ower = Person.query.filter(Person.phone_number == self.from_number).one()
+            owee = self.findPerson(owee_name)
+        elif owee_name.strip() == 'me':
+            owee = Person.query.filter(Person.phone_number == self.from_number).one()
+            ower = self.findPerson(ower_name)
+        else:
+            ower = self.findPerson(ower_name)
+            owee = self.findPerson(owee_name)
 
         date_added = TIMEZONE.localize(datetime.now())
 
