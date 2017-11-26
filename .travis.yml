@@ -2,18 +2,28 @@ branches:
   only:
   - master
   - "/^v0.*$/"
+
 language: python
+
 python:
 - '3.6'
+
+addons:
+  postgresql: '9.6'
+
 install:
 - pip install --upgrade pip
 - pip install -r requirements.txt
+
 dist: trusty
 sudo: false
+
 before_script:
 - cp configs/app_config.py.example budget/app_config.py
+
 script:
 - pytest -v
+
 deploy:
   provider: codedeploy
   access_key_id: AKIAIRJEIPZFF5EPEUXQ
