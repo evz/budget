@@ -1,3 +1,4 @@
+configs/alembic.ini
 configs/app_config.py
 configs/nginx_template.conf
 configs/supervisor_template.conf
