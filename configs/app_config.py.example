@@ -1,0 +1,6 @@
+TWILIO_ACCOUNT_ID = 'Floop'
+TWILIO_AUTH_TOKEN = 'Boop'
+TWILIO_NUMBER = '+13125555555'
+
+SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:@localhost:5432/budget_test'
+SQLALCHEMY_TRACK_MODIFICATIONS = False
