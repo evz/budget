@@ -23,7 +23,7 @@ if __name__ == "__main__":
     supervisor_outpath = '/etc/supervisor/conf.d/budget.conf'
     alembic_template_path = '/home/evz/budget-{}/configs/alembic_template.ini'.format(
         deployment_id)
-    alembic_outpath = '/home/evz/budget-{}/alembic.ini'
+    alembic_outpath = '/home/evz/budget-{}/alembic.ini'.format(deployment_id)
 
     with open(nginx_template_path) as f:
         nginx_conf = Template(f.read())
