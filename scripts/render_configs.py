@@ -21,6 +21,9 @@ if __name__ == "__main__":
     supervisor_template_path = '/home/evz/budget-{}/configs/supervisor_template.conf'.format(
         deployment_id)
     supervisor_outpath = '/etc/supervisor/conf.d/budget.conf'
+    alembic_template_path = '/home/evz/budget-{}/configs/alembic_template.ini'.format(
+        deployment_id)
+    alembic_outpath = '/home/evz/budget-{}/alembic.ini'
 
     with open(nginx_template_path) as f:
         nginx_conf = Template(f.read())
@@ -35,8 +38,16 @@ if __name__ == "__main__":
         supervisor_rendered = supervisor_conf.render(
             {'deployment_id': deployment_id})
 
+    with open(alembic_template_path) as f:
+        alembic_conf = Template(f.read())
+        alembic_rendered = alembic_conf.render(
+            {'deployment_id': deployment_id})
+
     with open(nginx_outpath, 'w') as out:
         out.write(nginx_rendered)
 
     with open(supervisor_outpath, 'w') as out:
         out.write(supervisor_rendered)
+
+    with open(alembic_outpath, 'w') as out:
+        out.write(alembic_rendered)
