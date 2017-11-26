@@ -21,6 +21,8 @@ def test_add_iou(db, client, setup, twilio_mock):
     assert iou.ower == eric
     assert iou.owee == kristi
     assert iou.amount == 100.0
+    assert iou.pending
+
 
     assert twilio_mock.kwargs['to'] == data['From']
     assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
