@@ -24,6 +24,7 @@ class IOU(db.Model):
     amount = db.Column(db.Float)
     date_added = db.Column(db.DateTime(timezone=True))
     pending = db.Column(db.Boolean, default=True)
+    reason = db.Column(db.Text)
 
     def __repr__(self):
         return '<IOU %r owes %r $%r>' % (self.ower, self.owee, self.amount)

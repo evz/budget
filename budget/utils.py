@@ -81,14 +81,10 @@ class IOUHandler(object):
                  "Kristi owes me $50"
         '''
 
-        try:
-            ower_name, owee = self.message.lower().replace('owes', 'owe').split('owe')
-            owee = owee.strip()
-            owee_name, amount = owee.rsplit(' ', 1)
-        except ValueError:
-            raise MessageError('IOU message should look like: '
-                               '"<name> owes <name> <amount>"',
-                               self.from_number)
+        if ' for ' in self.message.lower():
+            ower_name, owee_name, amount, reason = self.parseMessage()
+        else:
+            ower_name, owee_name, amount, reason = self.parseSimpleMessage()
 
         try:
             amount = amount.replace('$', '')
@@ -116,12 +112,38 @@ class IOUHandler(object):
         iou = IOU(ower=ower,
                   owee=owee,
                   date_added=date_added,
-                  amount=float(amount))
+                  amount=float(amount),
+                  reason=reason)
 
         db.session.add(iou)
         db.session.commit()
 
         return self.balance(ower, owee)
+
+    def parseMessage(self):
+        try:
+            people, reason = self.message.lower().split(' for ')
+            ower_name, owee = people.replace('owes', 'owe').split('owe')
+            owee = owee.strip()
+            owee_name, amount = owee.rsplit(' ', 1)
+        except ValueError:
+            raise MessageError('IOU message should look like: '
+                               '"<name> owes <name> <amount> for <reason>"',
+                               self.from_number)
+
+        return ower_name, owee_name, amount, reason
+
+    def parseSimpleMessage(self):
+        try:
+            ower_name, owee = self.message.lower().replace('owes', 'owe').split('owe')
+            owee = owee.strip()
+            owee_name, amount = owee.rsplit(' ', 1)
+        except ValueError:
+            raise MessageError('IOU message should look like: '
+                               '"<name> owes <name> <amount>"',
+                               self.from_number)
+
+        return ower_name, owee_name, amount, None
 
     def inquiry(self):
         """

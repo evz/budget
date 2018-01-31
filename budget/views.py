@@ -33,13 +33,6 @@ def incoming():
 
     sendTwilioResponse(response, from_number)
 
-    # if iou.other_number:
-    #     if iou.sent_from_ower:
-    #         response = 'Looks like you are owed some money: "{}"'.format(response)
-    #     else:
-    #         response = 'Looks like you owe some money: "{}"'.format(response)
-    #     sendTwilioResponse(response, iou.other_number)
-
     return 'iou handled'
 
 
