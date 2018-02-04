@@ -4,7 +4,7 @@ from pytz import timezone
 
 from flask import current_app
 
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import NoResultFound, FlushError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 
@@ -64,8 +64,15 @@ class IOUHandler(object):
             person = Person(name=name,
                             phone_number=phone_number)
 
-            db.session.add(person)
-            db.session.commit()
+            try:
+                db.session.add(person)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+
+                raise MessageError('A person with the phone '\
+                                   'number {1} already exists'.format(name, phone_number),
+                                   self.from_number)
 
             friend = person_to_person.insert().values(from_phone=self.from_number,
                                                       to_phone=phone_number,
@@ -200,7 +207,6 @@ class IOUHandler(object):
             message = '{owee} now owes {ower} ${balance}'.format(**fmt_args)
 
         return message
-
 
     def findRelationship(self, ower_name, owee_name):
 

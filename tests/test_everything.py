@@ -229,6 +229,20 @@ def test_bad_add_person(db, client, setup, twilio_mock):
 
 def test_duplicate_person(db, client, setup, twilio_mock):
 
+    db.session.expunge_all()
+
+    data = {
+        'Body': 'Add Kristi +13126666666',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'A person with the phone number +13126666666 already exists'
+
+
+def test_duplicate_friend(db, client, setup, twilio_mock):
+
     data = {
         'Body': 'Add Kristi +13122222222',
         'From': '+13125555555'
