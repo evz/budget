@@ -1,0 +1,57 @@
+<!doctype html>
+<html class="" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Hopper | Welcome</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/foundation.min.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/font-awesome.min.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    </head>
+    <body>
+        <!-- Start Top Bar -->
+        <div class="grid-container fluid">
+            <div class="grid-x grid-margin-x">
+                <div class="small-10 small-offset-1 cell">
+                    <div class="top-bar">
+                        <div class="top-bar-left">
+                            <ul class="menu">
+                                <li class="menu-text">
+                                    <h2>The Hopper</h2>
+                                </li>
+                                <li>
+                                    <a href="#">Yooooo</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Top Bar -->
+        <div class="grid-container fluid">
+            {% block content %}
+            {% endblock %}
+        </div>
+        <hr />
+        <footer class="grid-container fluid">
+            <div class="grid-x grid-margin-x">
+                <div class="large-5 small-10 small-offset-1 cell">
+                    <p>
+                    The hopper
+                    </p>
+                </div>
+                <div class="large-5 small-10 small-offset-1 medium-offset-0 cell">
+                    <p>
+                    Contact
+                    </p>
+                </div>
+            </div>
+        </footer>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/vendor/jquery.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/vendor/foundation.min.js') }}"></script>
+        <script type="text/javascript">
+            $(document).foundation();
+        </script>
+    </body>
+</html>

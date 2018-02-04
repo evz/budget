@@ -12,7 +12,7 @@ def test_add_iou(db, client, setup, twilio_mock):
         'From': '+13125555555'
     }
 
-    client.post(url_for('views.incoming'), data=data)
+    rv = client.post(url_for('views.incoming'), data=data)
 
     iou = db.session.query(IOU).filter(IOU.amount == 100.0).first()
     eric = db.session.query(Person).filter(Person.name == 'eric').first()
@@ -209,7 +209,7 @@ def test_bad_iou(db, client, setup, twilio_mock):
     assert twilio_mock.kwargs['to'] == data['From']
     assert twilio_mock.kwargs['from_'] == current_app.config['TWILIO_NUMBER']
     assert twilio_mock.kwargs['body'] == 'IOU message should look like: '\
-                                           '"<name> owes <name> <amount>"'
+                                           '"<name> owes <name> <amount> for <reason>"'
 
 
 def test_bad_add_person(db, client, setup, twilio_mock):
@@ -226,6 +226,18 @@ def test_bad_add_person(db, client, setup, twilio_mock):
     assert twilio_mock.kwargs['body'] == '"Add person" message should '\
                                            'look like: "Add <name> <phone number>"'
 
+
+def test_duplicate_person(db, client, setup, twilio_mock):
+
+    data = {
+        'Body': 'Add Kristi +13122222222',
+        'From': '+13125555555'
+    }
+
+    client.post(url_for('views.incoming'), data=data)
+
+    assert twilio_mock.kwargs['body'] == 'You already have a friend named '\
+                                         'Kristi with the number +13126666666'
 
 def test_bad_inquiry(db, client, setup, twilio_mock):
 

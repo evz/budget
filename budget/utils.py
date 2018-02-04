@@ -5,6 +5,7 @@ from pytz import timezone
 from flask import current_app
 
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 
 import phonenumbers
@@ -12,7 +13,7 @@ from phonenumbers import PhoneNumberFormat
 
 from twilio.rest import Client
 
-from .models import IOU, Person
+from .models import IOU, Person, person_to_person
 
 from .database import db
 
@@ -36,8 +37,6 @@ class IOUHandler(object):
     def __init__(self, message, from_number):
         self.message = message.strip()
         self.from_number = from_number
-        self.other_number = None
-        self.sent_from_ower = False
 
     def handle(self):
         if self.message.lower().startswith('how much'):
@@ -68,6 +67,24 @@ class IOUHandler(object):
             db.session.add(person)
             db.session.commit()
 
+            friend = person_to_person.insert().values(from_phone=self.from_number,
+                                                      to_phone=phone_number,
+                                                      alias=name.lower())
+
+            try:
+                db.session.execute(friend)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                real_friend = db.session.query(person_to_person)\
+                                        .filter(person_to_person.c.alias == name.lower())\
+                                        .filter(person_to_person.c.from_phone == self.from_number)\
+                                        .one()
+
+                raise MessageError('You already have a friend named {0} '
+                                   'with the number {1}'.format(name, real_friend.to_phone),
+                                   self.from_number)
+
             return '"{name}" with phone number {number} successfully added'.format(name=name,
                                                                                    number=phone_number)
 
@@ -81,10 +98,7 @@ class IOUHandler(object):
                  "Kristi owes me $50"
         '''
 
-        if ' for ' in self.message.lower():
-            ower_name, owee_name, amount, reason = self.parseMessage()
-        else:
-            ower_name, owee_name, amount, reason = self.parseSimpleMessage()
+        ower_name, owee_name, amount, reason = self.parseMessage()
 
         try:
             amount = amount.replace('$', '')
@@ -93,38 +107,42 @@ class IOUHandler(object):
             raise MessageError('Amount "{}" should be a number'.format(amount),
                                self.from_number)
 
-        ower = self.findPerson(ower_name)
-        owee = self.findPerson(owee_name)
+        sender, receiver, sent_from_ower = self.findRelationship(ower_name, owee_name)
 
-        if self.from_number not in [ower.phone_number, owee.phone_number]:
+        if self.from_number not in [sender.phone_number, receiver.phone_number]:
             raise MessageError("Sorry, you can't record IOUs"
                                "that you are not part of", self.from_number)
 
-        elif ower.phone_number == self.from_number:
-            self.other_number = owee.phone_number
-            self.sent_from_ower = True
-
-        elif owee.phone_number == self.from_number:
-            self.other_number = ower.phone_number
-
         date_added = TIMEZONE.localize(datetime.now())
 
-        iou = IOU(ower=ower,
-                  owee=owee,
-                  date_added=date_added,
-                  amount=float(amount),
-                  reason=reason)
+        if sent_from_ower:
+            iou = IOU(ower=sender,
+                      owee=receiver,
+                      date_added=date_added,
+                      amount=float(amount),
+                      reason=reason)
+        else:
+            iou = IOU(ower=receiver,
+                      owee=sender,
+                      date_added=date_added,
+                      amount=float(amount),
+                      reason=reason)
 
         db.session.add(iou)
         db.session.commit()
 
-        return self.balance(ower, owee)
+        return self.balance(iou.ower, iou.owee)
 
     def parseMessage(self):
         try:
-            people, reason = self.message.lower().split(' for ')
-            ower_name, owee = people.replace('owes', 'owe').split('owe')
+            if ' for ' in self.message.lower():
+                people, reason = self.message.lower().split(' for ')
+                ower_name, owee = people.replace('owes', 'owe').split('owe')
+            else:
+                ower_name, owee = self.message.lower().replace('owes', 'owe').split('owe')
+                reason = 'General'
             owee = owee.strip()
+            ower_name = ower_name.strip()
             owee_name, amount = owee.rsplit(' ', 1)
         except ValueError:
             raise MessageError('IOU message should look like: '
@@ -132,18 +150,6 @@ class IOUHandler(object):
                                self.from_number)
 
         return ower_name, owee_name, amount, reason
-
-    def parseSimpleMessage(self):
-        try:
-            ower_name, owee = self.message.lower().replace('owes', 'owe').split('owe')
-            owee = owee.strip()
-            owee_name, amount = owee.rsplit(' ', 1)
-        except ValueError:
-            raise MessageError('IOU message should look like: '
-                               '"<name> owes <name> <amount>"',
-                               self.from_number)
-
-        return ower_name, owee_name, amount, None
 
     def inquiry(self):
         """
@@ -160,10 +166,13 @@ class IOUHandler(object):
                                '"How much does <person 1 name> owe '
                                '<person 2 name>?"', self.from_number)
 
-        ower = self.findPerson(ower_name)
-        owee = self.findPerson(owee_name.replace('?', ''))
+        sender, receiver, sent_from_ower = self.findRelationship(ower_name,
+                                                                 owee_name.replace('?', ''))
 
-        return self.balance(ower, owee)
+        if sent_from_ower:
+            return self.balance(sender, receiver)
+        else:
+            return self.balance(receiver, sender)
 
     def balance(self, ower, owee):
         owes = IOU.query.filter(IOU.ower == ower)\
@@ -193,23 +202,34 @@ class IOUHandler(object):
         return message
 
 
-    def findPerson(self, person_name):
-        person_name = person_name.strip()
+    def findRelationship(self, ower_name, owee_name):
 
-        if person_name in ['i', 'me']:
-            condition = Person.phone_number == self.from_number
-        else:
-            condition = Person.name.ilike('%{}%'.format(person_name))
+        sender = Person.query.get(self.from_number)
+        sent_from_ower = False
+
+        if ower_name == owee_name:
+            alias = ower_name
+        elif ower_name in ['i', sender.name]:
+            alias = owee_name
+            sent_from_ower = True
+        elif owee_name in ['me', sender.name]:
+            alias = ower_name
 
         try:
-            person = Person.query.filter(condition).one()
+            relationship = db.session.query(person_to_person)\
+                                     .filter(person_to_person.c.from_phone == self.from_number)\
+                                     .filter(person_to_person.c.alias == alias.lower())\
+                                     .one()
         except NoResultFound:
             raise MessageError('"{0}" not found. '
                                'You can add this person '
                                'by texting back "Add {0} '
-                               '<their phone number>'.format(person_name),
+                               '<their phone number>'.format(alias),
                                self.from_number)
-        return person
+
+        receiver = Person.query.get(relationship.to_phone)
+
+        return sender, receiver, sent_from_ower
 
 
     def validatePhoneNumber(self, phone_number):
@@ -220,7 +240,7 @@ class IOUHandler(object):
                                'phone number'.format(phone_number),
                                self.from_number)
 
-        return  phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+        return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
 
     def fromAdmin(self):
         admin = db.session.query(Person)\

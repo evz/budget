@@ -8,7 +8,7 @@ from pytest_postgresql.factories import (
 
 from budget import create_app
 from budget.database import db as _db
-from budget.models import Person
+from budget.models import Person, person_to_person
 from budget.utils import Client
 
 
@@ -112,8 +112,25 @@ def setup(db, request):
                   admin=True)
     kristi = Person(name='kristi',
                     phone_number='+13126666666')
+
+    eric_to_kristi = person_to_person.insert()\
+                                     .values(from_phone='+13125555555',
+                                             to_phone='+13126666666',
+                                             alias='kristi')
+
+    kristi_to_eric = person_to_person.insert()\
+                                     .values(from_phone='+13126666666',
+                                             to_phone='+13125555555',
+                                             alias='eric')
+
     db.session.add(eric)
     db.session.add(kristi)
+
+    db.session.commit()
+
+    db.session.execute(eric_to_kristi)
+    db.session.execute(kristi_to_eric)
+
     db.session.commit()
 
     @request.addfinalizer

@@ -3,6 +3,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
 from .views import views
+from .admin import admin
 from .database import db
 
 def create_app(name=__name__, settings_override={}):
@@ -16,5 +17,6 @@ def create_app(name=__name__, settings_override={}):
     db.init_app(app)
 
     app.register_blueprint(views)
+    app.register_blueprint(admin)
 
     return app
